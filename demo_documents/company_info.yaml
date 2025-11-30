@@ -1,0 +1,189 @@
+# Демонстрационные реквизиты компаний
+
+companies:
+  - name: ООО "Компания"
+    full_name: Общество с ограниченной ответственностью "Компания"
+    inn: "1234567890"
+    kpp: "123456789"
+    ogrn: "1234567890123"
+    address: "г. Москва, ул. Примерная, д. 1, офис 100"
+    phone: "+7 (495) 123-45-67"
+    email: "info@company.ru"
+    director: "Петров Иван Сергеевич"
+    departments:
+      - name: Отдел кадров
+        head: "Иванова Мария Петровна"
+        employees: 5
+      - name: Бухгалтерия
+        head: "Сидорова Анна Владимировна"
+        employees: 3
+      - name: Отдел продаж
+        head: "Козлов Дмитрий Александрович"
+        employees: 8
+      - name: IT-отдел
+        head: "Смирнов Алексей Сергеевич"
+        employees: 6
+
+  - name: ООО "ТехноСервис"
+    full_name: Общество с ограниченной ответственностью "ТехноСервис"
+    inn: "9876543210"
+    kpp: "987654321"
+    ogrn: "9876543210987"
+    address: "г. Санкт-Петербург, пр. Невский, д. 50, офис 200"
+    phone: "+7 (812) 234-56-78"
+    email: "info@technoservice.ru"
+    director: "Волков Сергей Петрович"
+    departments:
+      - name: Отдел разработки
+        head: "Новиков Павел Иванович"
+        employees: 12
+      - name: Отдел тестирования
+        head: "Морозова Елена Викторовна"
+        employees: 5
+      - name: Отдел маркетинга
+        head: "Лебедев Андрей Николаевич"
+        employees: 4
+
+  - name: ООО ФК "РАНА"
+    full_name: Общество с ограниченной ответственностью Фармацевтическая Корпорация "РАНА"
+    short_name: ООО ФК «РАНА»
+    english_name: LLC Pharmaceutical Corporation "RHANA"
+    inn: "7703443249"
+    kpp: "770301001"
+    ogrn: "1187746232596"
+    ogrn_date: "02.03.2018"
+    legal_address: "125375, г. Москва, Леонтьевский переулок, дом 2А, стр. 1, эт.2 пом. III, ком.10"
+    postal_address: "125375, г. Москва, Леонтьевский переулок, дом 2А, стр. 1, эт.2 пом. III, ком.10"
+    warehouse_address: "121059, г. Москва, Бережковская набережная, дом 20, строение 64 (этаж 3, помещение I, комн. 43, часть комн. 19)"
+    phone: "+7(495)609-98-01"
+    email: "polyanskaya@rhana.ru"
+    director: "Полянская Татьяна Юрьевна"
+    deputy_accountant: "Зайцева Наталья Сергеевна"
+    okved: ["46.46", "46.45", "47.75", "47.73", "47.74", "73.20", "73.11", "85.41.9", "85.30", "24.4", "46.18.1"]
+    banks:
+      - name: АО "АЛЬФА-БАНК"
+        bik: "044525593"
+        corr_account: "30101810200000000593"
+        accounts:
+          - currency: "RUB"
+            account: "40702810701300027511"
+          - currency: "USD"
+            account: "40702840601300007685"
+        swift: "ALFARUMM"
+      - name: The Bank of New York Mellon
+        city: "New York"
+        account: "8900107162"
+        swift: "IRVTUS3N"
+      - name: Азиатско-Тихоокеанский Банк АО
+        city: "Москва"
+        inn: "2801023444"
+        kpp: "770343001"
+        bik: "044525754"
+        corr_account: "30101810145250000754"
+        accounts:
+          - currency: "RUB"
+            account: "40702810319000023220"
+          - currency: "JPY"
+            account: "40702392619000002977"
+          - currency: "JPY"
+            account: "40702392919001002977"
+            transit: true
+          - currency: "USD"
+            account: "40702840319000022084"
+          - currency: "USD"
+            account: "40702840619001022084"
+            transit: true
+        swift: "ASANRU8X"
+        foreign_address: "225 AMURSKAYA ST., BLAGOVESCHENSK, RUSSIA"
+
+  - name: ООО "ЭСТЕТИКПРОФИ"
+    full_name: Общество с ограниченной ответственностью «ЭСТЕТИКПРОФИ»
+    short_name: ООО «ЭСТЕТИКПРОФИ»
+    inn: "7703391248"
+    kpp: "770301001"
+    ogrn: "1157746745760"
+    registration_date: "13.08.2015"
+    address: "121069, г. Москва, Мерзляковский пер., д.10, пом.V, комн.1"
+    phone: "+7 (495) 690-24-79; +7 (495) 691-48-37"
+    email: "golovina_mv@rhanaopt.ru"
+    director: "Головина Марина Васильевна"
+    chief_accountant: "Дмитриева Анастасия Андреевна"
+    okpo: "47410679"
+    okved: "47.73"
+    okato: "45286575000"
+    oktmo: "45380000000"
+    licenses:
+      - type: "Лицензия на фармацевтическую деятельность"
+        status: "бессрочная"
+    banks:
+      - name: ПАО "СБЕРБАНК РОССИИ"
+        city: "Москва"
+        bik: "044525225"
+        corr_account: "30101810400000000225"
+        accounts:
+          - currency: "RUB"
+            account: "40702810038000053631"
+
+  - name: ООО Медицинская Корпорация «РАНА»
+    full_name: Общество с ограниченной ответственностью Медицинская Корпорация «РАНА»
+    short_name: ООО Медицинская Корпорация «РАНА»
+    inn: "7703724306"
+    kpp: "770301001"
+    ogrn: "1107746555256"
+    registration_date: "13.07.2010"
+    address: "123242, г. Москва, ул. Зоологическая, д. 22"
+    phone: "8(499) 766-27-27"
+    fax: "8(499) 766-27-27"
+    director: "Левашкевич Наталья Петровна"
+    director_email: "lnp@rhana.ru"
+    chief_accountant: "Дмитриева Марина Кимовна"
+    chief_accountant_email: "account@rhana.ru"
+    okpo: "66949131"
+    licenses:
+      - type: "Лицензия на медицинскую деятельность"
+        status: "бессрочная"
+        number: "ЛО-77-01-010192"
+        issue_date: "06.05.2015"
+        issued_by: "Департамент здравоохранения города Москвы"
+    banks:
+      - name: ПАО «БАНК УРАЛСИБ» / PJSC «BANK URALSIB»
+        bik: "044525787"
+        corr_account: "30101810100000000787"
+        swift: "AVTBRUMM"
+        accounts:
+          - currency: "RUB"
+            account: "40702810300180003232"
+            main: true
+          - currency: "EUR"
+            account: "40702978200180003232"
+          - currency: "USD"
+            account: "40702840600180003232"
+
+  - name: ООО «МЕДИЦИНСКАЯ КЛИНИКА РАНА»
+    full_name: Общество с ограниченной ответственностью «МЕДИЦИНСКАЯ КЛИНИКА РАНА»
+    short_name: ООО «МЕДИЦИНСКАЯ КЛИНИКА РАНА»
+    inn: "7729750935"
+    kpp: "772901001"
+    ogrn: "1137746837777"
+    registration_date: "13.09.2013"
+    address: "119285, г. Москва, пр-т Мичуринский, д. 6 стр. 4, эт. 1, пом. 1, ком. 13"
+    phone: "7 (499) 143-84-91"
+    director: "Морозова Мария Павловна"
+    director_email: "mpm@rhana.ru"
+    chief_accountant: "Морозова Мария Павловна"
+    okpo: "18436270"
+    licenses:
+      - type: "Лицензия на медицинскую деятельность"
+        status: "бессрочная"
+        number: "ЛО-77-01-015777"
+        issue_date: "16.03.2018"
+        issued_by: "Департамент здравоохранения города Москвы"
+    banks:
+      - name: ПАО «МОСКОВСКИЙ КРЕДИТНЫЙ БАНК»
+        bik: "044525659"
+        corr_account: "30101810745250000659"
+        accounts:
+          - currency: "RUB"
+            account: "40702810200760007516"
+            main: true
+

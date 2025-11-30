@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Версия {{ version_info.version }} - {{ document.title or document.number or 'Документ' }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/document.css">
+</head>
+<body>
+    <div class="container">
+        <header class="document-header">
+            <a href="/document/{{ doc_path }}" class="back-link">← Вернуться к текущей версии</a>
+            <h1>Версия {{ version_info.version }} - {{ document.title or document.number or 'Документ' }}</h1>
+        </header>
+
+        <div class="version-info">
+            <div class="version-meta">
+                <table>
+                    <tr>
+                        <td><strong>Версия:</strong></td>
+                        <td>{{ version_info.version }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Дата изменения:</strong></td>
+                        <td>{{ version_info.timestamp[:19].replace('T', ' ') }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Автор:</strong></td>
+                        <td>{{ version_info.author }}</td>
+                    </tr>
+                    {% if version_info.comment %}
+                    <tr>
+                        <td><strong>Комментарий:</strong></td>
+                        <td>{{ version_info.comment }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if document.organization %}
+                    <tr>
+                        <td><strong>Организация:</strong></td>
+                        <td>{{ document.organization }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if document.department %}
+                    <tr>
+                        <td><strong>Отдел:</strong></td>
+                        <td>{{ document.department }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if document.type %}
+                    <tr>
+                        <td><strong>Тип документа:</strong></td>
+                        <td>{{ document.type }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if document.number %}
+                    <tr>
+                        <td><strong>Номер:</strong></td>
+                        <td>{{ document.number }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if document.date %}
+                    <tr>
+                        <td><strong>Дата документа:</strong></td>
+                        <td>{{ document.date }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <div class="document-content version-content">
+            <div class="version-badge">Это историческая версия документа</div>
+            {{ content|safe }}
+        </div>
+
+        <footer class="document-footer">
+            <a href="/document/{{ doc_path }}" class="back-link">← Вернуться к текущей версии</a>
+        </footer>
+    </div>
+</body>
+</html>
+

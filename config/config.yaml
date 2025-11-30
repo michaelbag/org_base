@@ -1,0 +1,45 @@
+# Конфигурация системы
+
+# Настройки сервера
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# Настройки документов
+documents:
+  directory: "documents"
+  default_organization: "ООО Компания"
+  supported_types:
+    - приказ
+    - распоряжение
+    - служебная записка
+    - регламент
+    - положение
+    - инструкция
+    - должностная инструкция
+    - протокол
+    - акт
+    - карточка компании
+
+# Настройки PDF
+pdf:
+  directory: "pdf"
+  page_size: "A4"
+  margins:
+    top: "2cm"
+    right: "2cm"
+    bottom: "2cm"
+    left: "2cm"
+
+# Настройки версионирования
+versioning:
+  history_directory: "version_history"
+  auto_track: true
+  git_integration: true
+
+# Настройки безопасности
+security:
+  allowed_extensions: [".md"]
+  max_file_size: 10485760  # 10 MB
+

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document.title or document.number or 'Документ' }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/document.css">
+</head>
+<body>
+    <div class="container">
+        <header class="document-header">
+            <a href="/" class="back-link">← Вернуться к поиску</a>
+            <h1>{{ document.title or document.number or 'Документ' }}</h1>
+        </header>
+
+        {% if document.approval_block %}
+        <div class="approval-block" style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); text-align: right; border-bottom: 2px solid #667eea; padding-bottom: 20px;">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 1.1em; color: #667eea;">УТВЕРЖДАЮ</div>
+            <div style="line-height: 1.8; white-space: pre-line; font-size: 0.95em;">{{ document.approval_block }}</div>
+        </div>
+        {% endif %}
+
+        <div class="document-meta">
+            <table>
+                {% if document.organization %}
+                <tr>
+                    <td><strong>Организация:</strong></td>
+                    <td>{{ document.organization }}</td>
+                </tr>
+                {% endif %}
+                {% if document.department %}
+                <tr>
+                    <td><strong>Отдел:</strong></td>
+                    <td>{{ document.department }}</td>
+                </tr>
+                {% endif %}
+                {% if document.type %}
+                <tr>
+                    <td><strong>Тип документа:</strong></td>
+                    <td>{{ document.type }}</td>
+                </tr>
+                {% endif %}
+                {% if document.number %}
+                <tr>
+                    <td><strong>Номер:</strong></td>
+                    <td>{{ document.number }}</td>
+                </tr>
+                {% endif %}
+                {% if document.date %}
+                <tr>
+                    <td><strong>Дата:</strong></td>
+                    <td>{{ document.date }}</td>
+                </tr>
+                {% endif %}
+                {% if document.status %}
+                <tr>
+                    <td><strong>Статус:</strong></td>
+                    <td>
+                        <span class="status-badge status-{{ document.status|lower|replace(' ', '-') }}">
+                            {{ document.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endif %}
+                {% if document.approved_date %}
+                <tr>
+                    <td><strong>Дата подписания (утверждения):</strong></td>
+                    <td>{{ document.approved_date }}</td>
+                </tr>
+                {% endif %}
+                {% if document.effective_date %}
+                <tr>
+                    <td><strong>Дата ввода в действие:</strong></td>
+                    <td>{{ document.effective_date }}</td>
+                </tr>
+                {% endif %}
+                {% if document.expiry_date %}
+                <tr>
+                    <td><strong>Дата окончания действия:</strong></td>
+                    <td>{{ document.expiry_date }}</td>
+                </tr>
+                {% elif document.expiry_type %}
+                <tr>
+                    <td><strong>Срок действия:</strong></td>
+                    <td>{{ document.expiry_type }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        
+        {% if document.amendment_procedure %}
+        <div class="amendment-procedure" style="margin: 20px 0; padding: 15px; background-color: #f0f7ff; border-left: 4px solid #0066cc; border-radius: 4px;">
+            <h3 style="margin-top: 0; color: #0066cc;">Порядок внесения изменений</h3>
+            <p style="margin-bottom: 0; white-space: pre-line;">{{ document.amendment_procedure }}</p>
+        </div>
+        {% endif %}
+
+        {% if has_pdf %}
+        <div class="document-actions">
+            <a href="{{ pdf_path }}" target="_blank" class="btn btn-primary">Скачать PDF</a>
+        </div>
+        {% endif %}
+
+        {% if history and history|length > 0 %}
+        <div class="document-history">
+            <h2>История изменений</h2>
+            <div class="history-list">
+                {% for change in history|reverse %}
+                <div class="history-item">
+                    <div class="history-header">
+                        <span class="history-version">Версия {{ change.version }}</span>
+                        <span class="history-date">{{ change.timestamp[:19].replace('T', ' ') }}</span>
+                    </div>
+                    <div class="history-details">
+                        <div class="history-author">
+                            <strong>Автор:</strong> {{ change.author }}
+                        </div>
+                        {% if change.comment %}
+                        <div class="history-comment">
+                            <strong>Комментарий:</strong> {{ change.comment }}
+                        </div>
+                        {% endif %}
+                        <div class="history-actions">
+                            <a href="/version/{{ doc_path }}/{{ change.version }}" class="btn btn-small">Просмотреть версию</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="document-content">
+            {{ content|safe }}
+        </div>
+
+        {% if attachments and attachments|length > 0 %}
+        <div class="document-attachments" style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd;">
+            <h2>Приложения к документу</h2>
+            <div class="attachments-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                {% for attachment in attachments %}
+                <div class="attachment-item" style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; text-align: center;">
+                    {% if attachment.type == 'image' %}
+                    <a href="/attachment/{{ doc_path }}/{{ attachment.path }}" target="_blank" style="display: block; text-decoration: none; color: inherit;">
+                        <img src="/attachment/{{ doc_path }}/{{ attachment.path }}" 
+                             alt="{{ attachment.name }}" 
+                             style="max-width: 100%; max-height: 150px; margin-bottom: 8px; border-radius: 4px;">
+                        <div style="font-size: 0.9em; color: #666;">{{ attachment.name }}</div>
+                    </a>
+                    {% else %}
+                    <a href="/attachment/{{ doc_path }}/{{ attachment.path }}" 
+                       target="_blank" 
+                       style="display: block; text-decoration: none; color: #0066cc; padding: 20px;">
+                        <div style="font-size: 2em; margin-bottom: 8px;">
+                            {% if attachment.type == 'table' %}
+                            📊
+                            {% elif attachment.extension == '.pdf' %}
+                            📄
+                            {% elif attachment.extension in ['.doc', '.docx'] %}
+                            📝
+                            {% else %}
+                            📎
+                            {% endif %}
+                        </div>
+                        <div style="font-size: 0.9em; word-break: break-word;">{{ attachment.name }}</div>
+                        <div style="font-size: 0.8em; color: #999; margin-top: 4px;">
+                            {% if attachment.size < 1024 %}
+                            {{ attachment.size }} Б
+                            {% elif attachment.size < 1024 * 1024 %}
+                            {{ (attachment.size / 1024)|round(1) }} КБ
+                            {% else %}
+                            {{ (attachment.size / 1024 / 1024)|round(1) }} МБ
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <footer class="document-footer">
+            <a href="/" class="back-link">← Вернуться к поиску</a>
+        </footer>
+    </div>
+</body>
+</html>
+

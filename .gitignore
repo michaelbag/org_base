@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.pdf
+pdf/
+html/
+backups/
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Версионирование - история хранится в отдельном репозитории
+# version_history/versions/
+
+# Тестовые данные
+*.tmp
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Виртуальная среда (не коммитится, но должна быть создана локально)
+# venv/ уже указан выше
+
