@@ -116,9 +116,10 @@ class DocumentConverter:
         for pattern, prefix in patterns:
             def replace_link(match):
                 link_path = match.group(1)
-                # Кодируем путь для URL
-                encoded_path = quote(link_path, safe='/')
-                return match.group(0).replace(link_path, f'/attachment/{doc_path_without_ext}/{encoded_path}')
+                # Кодируем оба пути для URL
+                encoded_doc_path = quote(doc_path_without_ext, safe='/')
+                encoded_attach_path = quote(link_path, safe='/')
+                return match.group(0).replace(link_path, f'/attachment/{encoded_doc_path}/{encoded_attach_path}')
             
             html_content = re.sub(pattern, replace_link, html_content)
         

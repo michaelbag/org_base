@@ -163,6 +163,12 @@ def view_document(doc_path):
         document
     )
     
+    # Обрабатываем ссылки на приложения в HTML
+    html_content = _process_attachment_links_in_html(
+        html_content,
+        doc_path
+    )
+    
     # Проверяем наличие PDF
     pdf_path = BASE_DIR / "pdf" / Path(doc_path).with_suffix('.pdf')
     has_pdf = pdf_path.exists()
@@ -277,6 +283,40 @@ def _process_document_links_in_html(html_content: str, doc_path: str, document: 
     return html_content
 
 
+def _process_attachment_links_in_html(html_content: str, doc_path: str) -> str:
+    """
+    Обрабатывает ссылки на приложения в HTML контенте
+    
+    Преобразует относительные пути к приложениям в правильные ссылки
+    """
+    import re
+    from urllib.parse import quote
+    
+    # Получаем путь к документу без расширения
+    doc_path_without_ext = doc_path.replace('.md', '')
+    
+    # Паттерн для поиска ссылок на приложения
+    patterns = [
+        (r'href=["\'](приложения/[^"\']+)["\']', 'приложения/'),
+        (r'href=["\'](attachments/[^"\']+)["\']', 'attachments/'),
+        (r'src=["\'](приложения/[^"\']+)["\']', 'приложения/'),
+        (r'src=["\'](attachments/[^"\']+)["\']', 'attachments/'),
+    ]
+    
+    # Заменяем относительные пути на абсолютные URL
+    for pattern, prefix in patterns:
+        def replace_link(match):
+            link_path = match.group(1)
+            # Кодируем оба пути для URL
+            encoded_doc_path = quote(doc_path_without_ext, safe='/')
+            encoded_attach_path = quote(link_path, safe='/')
+            return match.group(0).replace(link_path, f'/attachment/{encoded_doc_path}/{encoded_attach_path}')
+        
+        html_content = re.sub(pattern, replace_link, html_content)
+    
+    return html_content
+
+
 @app.route('/pdf/<path:pdf_path>')
 def download_pdf(pdf_path):
     """Скачивание PDF файла"""
@@ -299,9 +339,37 @@ def download_html(html_path):
     return send_file(str(html_file), mimetype='text/html')
 
 
-@app.route('/attachment/<path:doc_path>/<path:attachment_path>')
-def download_attachment(doc_path, attachment_path):
+@app.route('/attachment/<path:full_path>')
+def download_attachment(full_path):
     """Скачивание файла приложения к документу"""
+    from urllib.parse import unquote
+    
+    # Flask автоматически декодирует URL в маршрутах, но иногда нужно декодировать вручную
+    # Декодируем путь на случай, если он пришел в кодированном виде
+    try:
+        decoded = unquote(full_path)
+        if decoded != full_path:
+            full_path = decoded
+    except Exception:
+        pass  # Если не удалось декодировать, используем как есть
+    
+    # Ищем последнее вхождение "приложения/" или "attachments/" в пути
+    # Это разделитель между путем к документу и путем к приложению
+    attachment_markers = ['приложения/', 'attachments/']
+    doc_path = None
+    attachment_path = None
+    
+    for marker in attachment_markers:
+        if marker in full_path:
+            parts = full_path.split(marker, 1)
+            if len(parts) == 2:
+                doc_path = parts[0].rstrip('/')  # Убираем завершающий слэш
+                attachment_path = marker + parts[1]
+                break
+    
+    if not doc_path or not attachment_path:
+        return f"Неверный путь к приложению. Full path: {full_path!r}, markers found: {[m for m in attachment_markers if m in full_path]}", 400
+    
     # doc_path может быть с .md или без, нужно нормализовать
     if doc_path.endswith('.md'):
         doc_file = BASE_DIR / "documents" / doc_path
@@ -310,13 +378,15 @@ def download_attachment(doc_path, attachment_path):
         doc_file = BASE_DIR / "documents" / f"{doc_path}.md"
     
     if not doc_file.exists():
-        return "Документ не найден", 404
+        return f"Документ не найден: {doc_file}", 404
     
-    doc_dir = doc_file.parent
+    # Получаем директорию документа - используем doc_path напрямую
+    # так как doc_file.parent вернет родительскую директорию, убрав имя файла
+    doc_dir = (BASE_DIR / "documents" / doc_path).resolve()
     
     # Безопасность: проверяем, что путь не выходит за пределы директории документа
     attachment_file = (doc_dir / attachment_path).resolve()
-    doc_dir_resolved = doc_dir.resolve()
+    doc_dir_resolved = doc_dir
     
     # Проверяем, что файл находится внутри директории документа
     try:
@@ -325,7 +395,7 @@ def download_attachment(doc_path, attachment_path):
         return "Неверный путь к приложению", 403
     
     if not attachment_file.exists():
-        return "Файл приложения не найден", 404
+        return f"Файл приложения не найден: {attachment_file}", 404
     
     # Определяем MIME тип
     mime_types = {
