@@ -36,3 +36,7 @@ documents/ООО ЭСТЕТИКПРОФИ/
 # Разрешаем только демонстрационные документы
 !documents/demo_documents/
 
+# Шаблоны бланков - могут содержать конфиденциальную информацию
+templates/letterheads/*.pdf
+!templates/letterheads/README.md
+

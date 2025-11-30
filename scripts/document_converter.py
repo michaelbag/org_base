@@ -29,19 +29,28 @@ try:
 except ImportError:
     HAS_WEASYPRINT = False
 
+try:
+    from pypdf import PdfWriter, PdfReader
+    HAS_PYPDF = True
+except ImportError:
+    HAS_PYPDF = False
+
 
 class DocumentConverter:
     """Универсальный конвертер документов в HTML и PDF"""
     
     def __init__(self, documents_dir: str = "documents", 
                  html_dir: str = "html", 
-                 pdf_dir: str = "pdf"):
+                 pdf_dir: str = "pdf",
+                 templates_dir: str = "templates/letterheads"):
         self.documents_dir = Path(documents_dir)
         self.html_dir = Path(html_dir)
         self.pdf_dir = Path(pdf_dir)
+        self.templates_dir = Path(templates_dir)
         self.parser = DocumentParser(documents_dir)
         self.html_dir.mkdir(exist_ok=True)
         self.pdf_dir.mkdir(exist_ok=True)
+        self.templates_dir.mkdir(parents=True, exist_ok=True)
     
     @staticmethod
     def format_date(date_value) -> Optional[str]:
@@ -213,8 +222,33 @@ class DocumentConverter:
         
         return html_content
     
+    def find_letterhead_template(self, document_type: str) -> Optional[Path]:
+        """
+        Находит шаблон бланка для типа документа
+        
+        Args:
+            document_type: Тип документа (например, 'приказ', 'письмо')
+        
+        Returns:
+            Path к файлу шаблона или None, если не найден
+        """
+        if not document_type:
+            return None
+        
+        # Ищем шаблон по типу документа
+        template_path = self.templates_dir / f"{document_type}.pdf"
+        if template_path.exists():
+            return template_path
+        
+        # Если не найден, ищем общий шаблон
+        default_template = self.templates_dir / "default.pdf"
+        if default_template.exists():
+            return default_template
+        
+        return None
+    
     def markdown_to_html(self, markdown_content: str, metadata: dict, 
-                        standalone: bool = True) -> str:
+                        standalone: bool = True, hide_technical: bool = False) -> str:
         """
         Конвертирует Markdown в HTML
         
@@ -386,7 +420,7 @@ class DocumentConverter:
         <h1>{{ title }}</h1>
     </div>
     
-    {% if metadata %}
+    {% if metadata and not hide_technical %}
     <div class="metadata">
         <table>
             {% if metadata.organization %}
@@ -452,7 +486,7 @@ class DocumentConverter:
     </div>
     {% endif %}
     
-    {% if metadata.amendment_procedure %}
+    {% if metadata.amendment_procedure and not hide_technical %}
     <div class="amendment-procedure" style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #0066cc;">
         <h3 style="margin-top: 0; color: #0066cc;">Порядок внесения изменений</h3>
         <p style="margin-bottom: 0;">{{ metadata.amendment_procedure }}</p>
@@ -486,7 +520,8 @@ class DocumentConverter:
         return template.render(
             title=title,
             metadata=formatted_metadata,
-            content=html_content
+            content=html_content,
+            hide_technical=hide_technical
         )
     
     def generate_html(self, document: dict) -> Optional[Path]:
@@ -515,10 +550,22 @@ class DocumentConverter:
     def generate_pdf(self, document: dict) -> Optional[Path]:
         """Генерирует PDF для одного документа"""
         try:
+            # Проверяем, нужно ли использовать бланк
+            print_on_letterhead = document.get('print_on_letterhead', False)
+            status = document.get('status', '').lower()
+            is_draft = status in ['в разработке', 'черновик', 'разработка']
+            
+            use_letterhead = print_on_letterhead and not is_draft
+            
+            # Определяем, скрывать ли технические данные
+            hide_technical = use_letterhead
+            
+            # Генерируем HTML с учетом необходимости скрытия технических данных
             html_content = self.markdown_to_html(
                 document['content'],
                 document,
-                standalone=True
+                standalone=True,
+                hide_technical=hide_technical
             )
             
             # Определяем путь для PDF
@@ -526,20 +573,41 @@ class DocumentConverter:
             pdf_path = self.pdf_dir / rel_path.with_suffix('.pdf')
             pdf_path.parent.mkdir(parents=True, exist_ok=True)
             
+            # Генерируем PDF контента
+            content_pdf_path = pdf_path.parent / f"{pdf_path.stem}_content.pdf"
+            
             # Пробуем использовать WeasyPrint (предпочтительно)
             if HAS_WEASYPRINT:
                 try:
                     HTML(string=html_content).write_pdf(
-                        pdf_path,
+                        str(content_pdf_path),
                         presentational_hints=True
                     )
-                    return pdf_path
                 except Exception as e:
                     print(f"  Предупреждение: WeasyPrint не смог создать PDF: {e}")
                     print("  Пробую использовать pdfkit...")
+                    if HAS_PDFKIT:
+                        try:
+                            options = {
+                                'page-size': 'A4',
+                                'margin-top': '2cm',
+                                'margin-right': '2cm',
+                                'margin-bottom': '2cm',
+                                'margin-left': '2cm',
+                                'encoding': "UTF-8",
+                                'no-outline': None,
+                                'enable-local-file-access': None
+                            }
+                            pdfkit.from_string(html_content, str(content_pdf_path), options=options)
+                        except Exception as e2:
+                            if 'No wkhtmltopdf' in str(e2) or 'wkhtmltopdf' in str(e2).lower():
+                                raise Exception("wkhtmltopdf не найден. Установите: brew install wkhtmltopdf или используйте WeasyPrint: pip install weasyprint")
+                            raise
+                    else:
+                        raise Exception("Не установлен ни один PDF генератор")
             
             # Пробуем использовать pdfkit (wkhtmltopdf)
-            if HAS_PDFKIT:
+            elif HAS_PDFKIT:
                 try:
                     options = {
                         'page-size': 'A4',
@@ -551,14 +619,60 @@ class DocumentConverter:
                         'no-outline': None,
                         'enable-local-file-access': None
                     }
-                    pdfkit.from_string(html_content, str(pdf_path), options=options)
-                    return pdf_path
+                    pdfkit.from_string(html_content, str(content_pdf_path), options=options)
                 except Exception as e:
                     if 'No wkhtmltopdf' in str(e) or 'wkhtmltopdf' in str(e).lower():
                         raise Exception("wkhtmltopdf не найден. Установите: brew install wkhtmltopdf или используйте WeasyPrint: pip install weasyprint")
                     raise
             else:
                 raise Exception("Не установлен ни один PDF генератор. Установите: pip install weasyprint или pip install pdfkit")
+            
+            # Если нужно использовать бланк, накладываем контент на шаблон
+            if use_letterhead and HAS_PYPDF:
+                letterhead_template = self.find_letterhead_template(document.get('type', ''))
+                if letterhead_template and letterhead_template.exists():
+                    try:
+                        # Объединяем бланк и контент
+                        writer = PdfWriter()
+                        
+                        # Читаем шаблон бланка
+                        letterhead_reader = PdfReader(str(letterhead_template))
+                        content_reader = PdfReader(str(content_pdf_path))
+                        
+                        # Для каждой страницы контента накладываем на бланк
+                        for page_num in range(len(content_reader.pages)):
+                            # Берем первую страницу бланка (или повторяем, если страниц больше)
+                            letterhead_page = letterhead_reader.pages[min(page_num, len(letterhead_reader.pages) - 1)]
+                            content_page = content_reader.pages[page_num]
+                            
+                            # Накладываем контент на бланк
+                            letterhead_page.merge_page(content_page)
+                            writer.add_page(letterhead_page)
+                        
+                        # Сохраняем итоговый PDF
+                        with open(pdf_path, 'wb') as output_file:
+                            writer.write(output_file)
+                        
+                        # Удаляем временный файл контента
+                        content_pdf_path.unlink()
+                        
+                        return pdf_path
+                    except Exception as e:
+                        print(f"  Предупреждение: Не удалось наложить бланк: {e}")
+                        print(f"  Используется PDF без бланка")
+                        # Переименовываем временный файл в итоговый
+                        content_pdf_path.rename(pdf_path)
+                        return pdf_path
+                else:
+                    print(f"  Предупреждение: Шаблон бланка не найден для типа '{document.get('type', '')}'")
+                    # Переименовываем временный файл в итоговый
+                    content_pdf_path.rename(pdf_path)
+                    return pdf_path
+            else:
+                # Просто переименовываем временный файл в итоговый
+                if content_pdf_path.exists():
+                    content_pdf_path.rename(pdf_path)
+                return pdf_path
                 
         except Exception as e:
             print(f"✗ Ошибка при генерации PDF для {document.get('file_path', 'unknown')}: {e}")

@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
+from werkzeug.utils import secure_filename
 from document_parser import DocumentParser
 from version_tracker import VersionTracker
 from document_converter import DocumentConverter
@@ -28,7 +29,8 @@ version_tracker = VersionTracker(str(BASE_DIR / "documents"), str(BASE_DIR / "ve
 converter = DocumentConverter(
     documents_dir=str(BASE_DIR / "documents"),
     html_dir=str(BASE_DIR / "html"),
-    pdf_dir=str(BASE_DIR / "pdf")
+    pdf_dir=str(BASE_DIR / "pdf"),
+    templates_dir=str(BASE_DIR / "templates" / "letterheads")
 )
 
 
@@ -579,6 +581,76 @@ def view_version(doc_path, version):
                          content=html_content,
                          version_info=version_data,
                          doc_path=doc_path)
+
+
+@app.route('/api/letterhead/upload', methods=['POST'])
+def upload_letterhead():
+    """API: загрузка шаблона бланка"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'Файл не найден'}), 400
+    
+    file = request.files['file']
+    document_type = request.form.get('document_type', 'default')
+    
+    if file.filename == '':
+        return jsonify({'error': 'Файл не выбран'}), 400
+    
+    # Проверяем расширение
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Разрешены только PDF файлы'}), 400
+    
+    # Создаем безопасное имя файла
+    filename = secure_filename(f"{document_type}.pdf")
+    templates_dir = BASE_DIR / "templates" / "letterheads"
+    templates_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = templates_dir / filename
+    
+    try:
+        file.save(str(file_path))
+        return jsonify({
+            'success': True,
+            'message': f'Шаблон бланка загружен: {filename}',
+            'document_type': document_type,
+            'filename': filename
+        })
+    except Exception as e:
+        return jsonify({'error': f'Ошибка при сохранении файла: {str(e)}'}), 500
+
+
+@app.route('/api/letterhead/list', methods=['GET'])
+def list_letterheads():
+    """API: список загруженных шаблонов бланков"""
+    templates_dir = BASE_DIR / "templates" / "letterheads"
+    templates_dir.mkdir(parents=True, exist_ok=True)
+    
+    templates = []
+    for template_file in templates_dir.glob("*.pdf"):
+        document_type = template_file.stem
+        templates.append({
+            'document_type': document_type,
+            'filename': template_file.name,
+            'size': template_file.stat().st_size,
+            'modified': datetime.fromtimestamp(template_file.stat().st_mtime).isoformat()
+        })
+    
+    return jsonify({'templates': templates})
+
+
+@app.route('/api/letterhead/<document_type>', methods=['DELETE'])
+def delete_letterhead(document_type):
+    """API: удаление шаблона бланка"""
+    templates_dir = BASE_DIR / "templates" / "letterheads"
+    template_path = templates_dir / f"{secure_filename(document_type)}.pdf"
+    
+    if not template_path.exists():
+        return jsonify({'error': 'Шаблон не найден'}), 404
+    
+    try:
+        template_path.unlink()
+        return jsonify({'success': True, 'message': 'Шаблон удален'})
+    except Exception as e:
+        return jsonify({'error': f'Ошибка при удалении: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

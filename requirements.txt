@@ -7,4 +7,5 @@ flask==3.0.0
 markdown2==2.4.10
 pytest==7.4.3
 weasyprint==66.0
+pypdf==4.0.1
 
