@@ -99,6 +99,51 @@
         {% if has_pdf %}
         <div class="document-actions">
             <a href="{{ pdf_path }}" target="_blank" class="btn btn-primary">Скачать PDF</a>
+            
+            <!-- Форма работы с DOCX -->
+            <div class="docx-actions" style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 1.1em;">Работа с DOCX</h3>
+                
+                <!-- Выгрузка в DOCX -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 10px; font-size: 0.95em;">Выгрузить в DOCX</h4>
+                    <form id="exportDocxForm" style="display: flex; flex-direction: column; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="include_metadata" checked>
+                            <span>Включать метаданные</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="include_technical" checked>
+                            <span>Включать технические данные</span>
+                        </label>
+                        <button type="submit" class="btn btn-primary" style="width: auto;">Выгрузить DOCX</button>
+                    </form>
+                </div>
+                
+                <!-- Загрузка DOCX -->
+                <div style="border-top: 1px solid #ddd; padding-top: 20px;">
+                    <h4 style="margin-bottom: 10px; font-size: 0.95em;">Загрузить/Обновить из DOCX</h4>
+                    <form id="importDocxForm" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="file" name="file" accept=".docx" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="text" name="author" placeholder="Автор (необязательно)" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <textarea name="comment" placeholder="Комментарий (необязательно)" rows="2" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="include_metadata" checked>
+                            <span>Включать метаданные</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="include_technical" checked>
+                            <span>Включать технические данные</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="update_existing" checked>
+                            <span>Обновить существующий документ</span>
+                        </label>
+                        <button type="submit" class="btn btn-primary" style="width: auto;">Загрузить DOCX</button>
+                    </form>
+                    <div id="importStatus" style="margin-top: 10px; display: none;"></div>
+                </div>
+            </div>
         </div>
         {% endif %}
 
@@ -185,6 +230,51 @@
             <a href="/" class="back-link">← Вернуться к поиску</a>
         </footer>
     </div>
+    
+    <script>
+        // Обработка выгрузки в DOCX
+        document.getElementById('exportDocxForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const params = new URLSearchParams();
+            params.append('include_metadata', formData.get('include_metadata') ? 'true' : 'false');
+            params.append('include_technical', formData.get('include_technical') ? 'true' : 'false');
+            
+            const docPath = '{{ doc_path }}';
+            window.location.href = `/api/docx/export/${encodeURIComponent(docPath)}?${params.toString()}`;
+        });
+        
+        // Обработка загрузки DOCX
+        document.getElementById('importDocxForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const docPath = '{{ doc_path }}';
+            formData.append('doc_path', docPath);
+            
+            const statusDiv = document.getElementById('importStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div style="color: #666;">Загрузка...</div>';
+            
+            fetch('/api/docx/import', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusDiv.innerHTML = '<div style="color: green;">✓ ' + data.message + '</div>';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    statusDiv.innerHTML = '<div style="color: red;">✗ ' + (data.error || 'Ошибка при загрузке') + '</div>';
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = '<div style="color: red;">✗ Ошибка: ' + error.message + '</div>';
+            });
+        });
+    </script>
 </body>
 </html>
 

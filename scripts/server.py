@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 from document_parser import DocumentParser
 from version_tracker import VersionTracker
 from document_converter import DocumentConverter
+from docx_converter import DocxConverter
 import markdown2
 
 # Добавляем текущую директорию в путь
@@ -31,6 +32,10 @@ converter = DocumentConverter(
     html_dir=str(BASE_DIR / "html"),
     pdf_dir=str(BASE_DIR / "pdf"),
     templates_dir=str(BASE_DIR / "templates" / "letterheads")
+)
+docx_converter = DocxConverter(
+    documents_dir=str(BASE_DIR / "documents"),
+    versions_dir=str(BASE_DIR / "version_history" / "versions")
 )
 
 
@@ -653,8 +658,176 @@ def delete_letterhead(document_type):
         return jsonify({'error': f'Ошибка при удалении: {str(e)}'}), 500
 
 
+@app.route('/api/docx/export/<path:doc_path>', methods=['GET'])
+def export_docx(doc_path):
+    """API: выгрузка документа в формате DOCX"""
+    from urllib.parse import unquote
+    
+    # Декодируем путь
+    doc_path = unquote(doc_path)
+    
+    # Параметры экспорта
+    include_metadata = request.args.get('include_metadata', 'true').lower() == 'true'
+    include_technical = request.args.get('include_technical', 'true').lower() == 'true'
+    
+    # Находим документ
+    doc_file = BASE_DIR / "documents" / doc_path
+    if not doc_file.exists():
+        return jsonify({'error': 'Документ не найден'}), 404
+    
+    try:
+        # Парсим документ
+        document = parser.parse_document(doc_file)
+        if not document:
+            return jsonify({'error': 'Ошибка при парсинге документа'}), 500
+        
+        # Создаем временный файл для DOCX
+        import tempfile
+        temp_dir = BASE_DIR / "tmp"
+        temp_dir.mkdir(exist_ok=True)
+        docx_path = temp_dir / f"{doc_file.stem}.docx"
+        
+        # Конвертируем в DOCX
+        docx_converter.markdown_to_docx(
+            document['content'],
+            document,
+            docx_path,
+            include_metadata=include_metadata,
+            include_technical=include_technical
+        )
+        
+        # Отправляем файл
+        return send_file(
+            str(docx_path),
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name=f"{doc_file.stem}.docx"
+        )
+    except Exception as e:
+        return jsonify({'error': f'Ошибка при экспорте: {str(e)}'}), 500
+
+
+@app.route('/api/docx/import', methods=['POST'])
+def import_docx():
+    """API: загрузка документа в формате DOCX"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'Файл не найден'}), 400
+    
+    file = request.files['file']
+    doc_path = request.form.get('doc_path', '')
+    author = request.form.get('author', 'Система')
+    comment = request.form.get('comment', 'Импорт из DOCX')
+    include_metadata = request.form.get('include_metadata', 'true').lower() == 'true'
+    include_technical = request.form.get('include_technical', 'true').lower() == 'true'
+    update_existing = request.form.get('update_existing', 'false').lower() == 'true'
+    
+    if file.filename == '':
+        return jsonify({'error': 'Файл не выбран'}), 400
+    
+    # Проверяем расширение
+    if not file.filename.lower().endswith('.docx'):
+        return jsonify({'error': 'Разрешены только DOCX файлы'}), 400
+    
+    if not doc_path:
+        return jsonify({'error': 'Не указан путь к документу'}), 400
+    
+    try:
+        from urllib.parse import unquote
+        doc_path = unquote(doc_path)
+        doc_file = BASE_DIR / "documents" / doc_path
+        
+        # Сохраняем загруженный файл временно
+        import tempfile
+        temp_dir = BASE_DIR / "tmp"
+        temp_dir.mkdir(exist_ok=True)
+        temp_docx = temp_dir / f"upload_{file.filename}"
+        file.save(str(temp_docx))
+        
+        # Сохраняем DOCX как версию
+        version_path = docx_converter.save_docx_version(
+            temp_docx,
+            doc_path,
+            author,
+            comment
+        )
+        
+        # Конвертируем DOCX в Markdown
+        markdown_content = docx_converter.docx_to_markdown(
+            temp_docx,
+            include_metadata=include_metadata,
+            include_technical=include_technical
+        )
+        
+        # Если документ существует и нужно обновить
+        if doc_file.exists() and update_existing:
+            # Парсим существующий документ для сохранения метаданных
+            existing_doc = parser.parse_document(doc_file)
+            if existing_doc:
+                # Объединяем метаданные
+                # Извлекаем YAML из нового контента
+                if markdown_content.startswith('---'):
+                    parts = markdown_content.split('---', 2)
+                    if len(parts) >= 3:
+                        new_yaml = parts[1]
+                        new_content = parts[2].strip()
+                        
+                        # Объединяем метаданные
+                        try:
+                            import yaml
+                            new_metadata = yaml.safe_load(new_yaml) or {}
+                            # Сохраняем важные метаданные из существующего документа
+                            for key in ['type', 'organization', 'department', 'number', 'status']:
+                                if key in existing_doc and key not in new_metadata:
+                                    new_metadata[key] = existing_doc[key]
+                            
+                            # Формируем новый документ
+                            yaml_lines = ['---']
+                            for key, value in new_metadata.items():
+                                if value is not None:
+                                    yaml_lines.append(f'{key}: {value}')
+                            yaml_lines.append('---')
+                            markdown_content = '\n'.join(yaml_lines) + '\n\n' + new_content
+                        except Exception as merge_error:
+                            # Если не удалось объединить, используем новый контент как есть
+                            pass
+        
+        # Сохраняем Markdown документ
+        doc_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(doc_file, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+        
+        # Отслеживаем изменение версии
+        version_tracker.track_change(doc_file, author, comment)
+        
+        # Удаляем временный файл
+        temp_docx.unlink()
+        
+        # Парсим обновленный документ
+        updated_doc = parser.parse_document(doc_file)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Документ успешно импортирован',
+            'document': {
+                'path': doc_path,
+                'title': updated_doc.get('title') if updated_doc else None,
+                'version_path': str(version_path.relative_to(BASE_DIR))
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': f'Ошибка при импорте: {str(e)}',
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 if __name__ == '__main__':
+    import os
     print("Запуск сервера...")
     print("Откройте в браузере: http://localhost:8000")
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    # Отключаем debug mode для избежания проблем с multiprocessing
+    # Используем переменную окружения для управления debug режимом
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=8000, debug=debug_mode, use_reloader=False)
 

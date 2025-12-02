@@ -40,3 +40,7 @@ documents/ООО ЭСТЕТИКПРОФИ/
 templates/letterheads/*.pdf
 !templates/letterheads/README.md
 
+# Временные файлы
+tmp/
+*.tmp
+
