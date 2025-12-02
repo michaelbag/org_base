@@ -100,6 +100,65 @@ class DocumentConverter:
         # Если не удалось распарсить, возвращаем как есть
         return date_str
     
+    def _fix_broken_lists(self, html_content: str) -> str:
+        """
+        Исправляет списки, которые не были распознаны markdown2.
+        Преобразует структуры вида:
+        - <p><strong>Заголовок:</strong>\n- пункт\n- пункт</p>
+        - <p><strong>Заголовок:</strong></p>\n- пункт\n- пункт
+        в правильные HTML списки.
+        """
+        import re
+        
+        # Паттерн 1: Список внутри параграфа с заголовком
+        # Ищем <p><strong>Заголовок:</strong>\n- пункт\n- пункт</p>
+        pattern1 = r'<p><strong>([^<]+):</strong>\s*\n((?:- [^\n]+\n?)+)</p>'
+        
+        # Паттерн 2: Список после отдельного параграфа с заголовком
+        # Ищем <p><strong>Заголовок:</strong></p>\n- пункт\n- пункт (до следующего блока)
+        pattern2 = r'(<p><strong>([^<]+):</strong></p>)\s*\n((?:- [^\n]+\n?)+)(?=\n\n|<p>|<h|<div)'
+        
+        def replace_with_list1(match):
+            header = match.group(1)
+            list_items = match.group(2)
+            
+            # Разбиваем пункты списка
+            items = re.findall(r'- ([^\n]+)', list_items)
+            
+            # Формируем HTML список
+            list_html = f'<p><strong>{header}:</strong></p>\n<ul>\n'
+            for item in items:
+                item_text = item.strip()
+                list_html += f'  <li>{item_text}</li>\n'
+            list_html += '</ul>'
+            
+            return list_html
+        
+        def replace_with_list2(match):
+            header_tag = match.group(1)
+            header = match.group(2)
+            list_items = match.group(3)
+            
+            # Разбиваем пункты списка
+            items = re.findall(r'- ([^\n]+)', list_items)
+            
+            # Формируем HTML список
+            list_html = f'{header_tag}\n<ul>\n'
+            for item in items:
+                item_text = item.strip()
+                list_html += f'  <li>{item_text}</li>\n'
+            list_html += '</ul>'
+            
+            return list_html
+        
+        # Сначала обрабатываем паттерн 2 (более специфичный)
+        html_content = re.sub(pattern2, replace_with_list2, html_content, flags=re.MULTILINE | re.DOTALL)
+        
+        # Затем обрабатываем паттерн 1
+        html_content = re.sub(pattern1, replace_with_list1, html_content, flags=re.MULTILINE)
+        
+        return html_content
+    
     def _process_attachment_links(self, html_content: str, doc_relative_path: str) -> str:
         """
         Обрабатывает ссылки на приложения в HTML
@@ -261,6 +320,10 @@ class DocumentConverter:
             markdown_content,
             extras=['fenced-code-blocks', 'tables', 'header-ids']
         )
+        
+        # Исправляем списки, которые не были распознаны markdown2
+        # Преобразуем структуры вида <p><strong>Преимущества:</strong>\n- пункт\n- пункт</p> в правильные списки
+        html_content = self._fix_broken_lists(html_content)
         
         # Обрабатываем ссылки на приложения
         doc_relative_path = metadata.get('relative_path', '')

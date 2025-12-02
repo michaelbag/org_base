@@ -157,10 +157,11 @@ def view_document(doc_path):
         document
     )
     
-    # Конвертируем Markdown в HTML
-    html_content = markdown2.markdown(
+    # Конвертируем Markdown в HTML используя DocumentConverter для правильной обработки списков
+    html_content = converter.markdown_to_html(
         markdown_content,
-        extras=['fenced-code-blocks', 'tables', 'header-ids']
+        document,
+        standalone=False
     )
     
     # Обрабатываем ссылки на другие документы в HTML (на случай, если что-то пропустили)
@@ -575,10 +576,11 @@ def view_version(doc_path, version):
     if not version_data:
         return "Версия не найдена", 404
     
-    # Конвертируем Markdown в HTML
-    html_content = markdown2.markdown(
+    # Конвертируем Markdown в HTML используя DocumentConverter для правильной обработки списков
+    html_content = converter.markdown_to_html(
         version_data['content'],
-        extras=['fenced-code-blocks', 'tables', 'header-ids']
+        version_data['metadata'],
+        standalone=False
     )
     
     return render_template('document_version.html',
