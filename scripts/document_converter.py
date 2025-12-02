@@ -106,6 +106,7 @@ class DocumentConverter:
         Преобразует структуры вида:
         - <p><strong>Заголовок:</strong>\n- пункт\n- пункт</p>
         - <p><strong>Заголовок:</strong></p>\n- пункт\n- пункт
+        - <p>Текст:\n- пункт\n- пункт</p> (список после обычного текста)
         в правильные HTML списки.
         """
         import re
@@ -117,6 +118,10 @@ class DocumentConverter:
         # Паттерн 2: Список после отдельного параграфа с заголовком
         # Ищем <p><strong>Заголовок:</strong></p>\n- пункт\n- пункт (до следующего блока)
         pattern2 = r'(<p><strong>([^<]+):</strong></p>)\s*\n((?:- [^\n]+\n?)+)(?=\n\n|<p>|<h|<div)'
+        
+        # Паттерн 3: Список внутри параграфа после обычного текста (не заголовка)
+        # Ищем <p>Текст:\n- пункт\n- пункт</p>
+        pattern3 = r'<p>([^<]+:)\s*\n((?:- [^\n]+\n?)+)</p>'
         
         def replace_with_list1(match):
             header = match.group(1)
@@ -151,11 +156,30 @@ class DocumentConverter:
             
             return list_html
         
+        def replace_with_list3(match):
+            text = match.group(1)
+            list_items = match.group(2)
+            
+            # Разбиваем пункты списка
+            items = re.findall(r'- ([^\n]+)', list_items)
+            
+            # Формируем HTML список
+            list_html = f'<p>{text}</p>\n<ul>\n'
+            for item in items:
+                item_text = item.strip()
+                list_html += f'  <li>{item_text}</li>\n'
+            list_html += '</ul>'
+            
+            return list_html
+        
         # Сначала обрабатываем паттерн 2 (более специфичный)
         html_content = re.sub(pattern2, replace_with_list2, html_content, flags=re.MULTILINE | re.DOTALL)
         
         # Затем обрабатываем паттерн 1
         html_content = re.sub(pattern1, replace_with_list1, html_content, flags=re.MULTILINE)
+        
+        # Затем обрабатываем паттерн 3 (список после обычного текста)
+        html_content = re.sub(pattern3, replace_with_list3, html_content, flags=re.MULTILINE)
         
         return html_content
     
