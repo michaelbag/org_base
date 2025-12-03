@@ -167,7 +167,15 @@ class DocumentParser:
         if not self.documents_dir.exists():
             return documents
         
+        # Исключаем папки с карточками сотрудников
+        excluded_folders = {'сотрудники', 'employees'}
+        
         for md_file in self.documents_dir.rglob('*.md'):
+            # Пропускаем файлы из папок сотрудников
+            parts = md_file.relative_to(self.documents_dir).parts
+            if any(part in excluded_folders for part in parts):
+                continue
+            
             doc = self.parse_document(md_file)
             if doc:
                 documents.append(doc)

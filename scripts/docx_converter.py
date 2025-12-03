@@ -306,12 +306,17 @@ class DocxConverter:
         """Простой парсинг HTML через регулярные выражения с сохранением форматирования"""
         import re
         
-        # Обрабатываем таблицы отдельно
+        # Обрабатываем таблицы отдельно - извлекаем и сразу парсим
         tables = []
         table_pattern = r'<table[^>]*>(.*?)</table>'
-        for match in re.finditer(table_pattern, html_content, flags=re.DOTALL | re.IGNORECASE):
-            tables.append((match.start(), match.end(), match.group(0)))
-            html_content = html_content[:match.start()] + f'__TABLE_{len(tables)-1}__' + html_content[match.end():]
+        table_matches = list(re.finditer(table_pattern, html_content, flags=re.DOTALL | re.IGNORECASE))
+        
+        # Обрабатываем таблицы в обратном порядке, чтобы не сбить индексы при замене
+        for match in reversed(table_matches):
+            table_html = match.group(0)
+            tables.append((match.start(), match.end(), table_html))
+            # Заменяем таблицу на плейсхолдер
+            html_content = html_content[:match.start()] + f'__TABLE_PLACEHOLDER_{len(tables)-1}__' + html_content[match.end():]
         
         # Обрабатываем списки с сохранением структуры
         html_content = re.sub(r'<ul[^>]*>', '\n__UL_START__\n', html_content, flags=re.IGNORECASE)
@@ -342,10 +347,6 @@ class DocxConverter:
         html_content = re.sub(r'<[^>]+>', '', html_content)
         html_content = unescape(html_content)
         
-        # Восстанавливаем таблицы
-        for idx, (start, end, table_html) in enumerate(tables):
-            html_content = html_content.replace(f'__TABLE_{idx}__', table_html)
-        
         # Парсим построчно
         lines = html_content.split('\n')
         i = 0
@@ -356,20 +357,18 @@ class DocxConverter:
         while i < len(lines):
             line = lines[i]
             
-            # Таблицы
-            if '__TABLE_' in line or '<table' in line.lower():
-                # Ищем полную таблицу
-                table_text = line
-                j = i + 1
-                while j < len(lines) and ('__TABLE_' in lines[j] or '</table>' not in lines[j]):
-                    table_text += '\n' + lines[j]
-                    j += 1
-                if '</table>' in lines[j]:
-                    table_text += '\n' + lines[j]
-                
-                self._parse_table_html(table_text, doc)
-                i = j + 1
-                last_was_empty = False
+            # Таблицы - обрабатываем плейсхолдеры
+            if '__TABLE_PLACEHOLDER_' in line:
+                # Извлекаем индекс таблицы
+                match = re.search(r'__TABLE_PLACEHOLDER_(\d+)__', line)
+                if match:
+                    table_idx = int(match.group(1))
+                    if table_idx < len(tables):
+                        # Парсим таблицу из сохраненного HTML
+                        table_html = tables[table_idx][2]
+                        self._parse_table_html(table_html, doc)
+                        last_was_empty = False
+                i += 1
                 continue
             
             # Заголовки

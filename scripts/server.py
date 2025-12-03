@@ -1,19 +1,18 @@
 """
 Веб-сервер для просмотра документов
 
-Версия: 0.0.1.5
+Версия: 0.0.1.27
 Лицензия: LGPL-3.0
 """
 import os
 import sys
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect
 from werkzeug.utils import secure_filename
 from document_parser import DocumentParser
+from employee_parser import EmployeeParser
 from version_tracker import VersionTracker
-from document_converter import DocumentConverter
-from docx_converter import DocxConverter
 import markdown2
 
 # Добавляем текущую директорию в путь
@@ -26,17 +25,33 @@ app = Flask(__name__,
 # Инициализация парсера, трекера версий и конвертера
 BASE_DIR = Path(__file__).parent.parent
 parser = DocumentParser(str(BASE_DIR / "documents"))
+employee_parser = EmployeeParser(str(BASE_DIR / "documents"))
 version_tracker = VersionTracker(str(BASE_DIR / "documents"), str(BASE_DIR / "version_history"))
-converter = DocumentConverter(
-    documents_dir=str(BASE_DIR / "documents"),
-    html_dir=str(BASE_DIR / "html"),
-    pdf_dir=str(BASE_DIR / "pdf"),
-    templates_dir=str(BASE_DIR / "templates" / "letterheads")
-)
-docx_converter = DocxConverter(
-    documents_dir=str(BASE_DIR / "documents"),
-    versions_dir=str(BASE_DIR / "version_history" / "versions")
-)
+
+# Инициализация конвертера с обработкой ошибок (может не работать без системных библиотек)
+converter = None
+docx_converter = None
+try:
+    from document_converter import DocumentConverter
+    converter = DocumentConverter(
+        documents_dir=str(BASE_DIR / "documents"),
+        html_dir=str(BASE_DIR / "html"),
+        pdf_dir=str(BASE_DIR / "pdf"),
+        templates_dir=str(BASE_DIR / "templates" / "letterheads")
+    )
+except Exception as e:
+    print(f"Предупреждение: DocumentConverter не может быть инициализирован: {e}")
+    print("Функции генерации PDF будут недоступны, но веб-сервер продолжит работу.")
+
+try:
+    from docx_converter import DocxConverter
+    docx_converter = DocxConverter(
+        documents_dir=str(BASE_DIR / "documents"),
+        versions_dir=str(BASE_DIR / "version_history" / "versions")
+    )
+except Exception as e:
+    print(f"Предупреждение: DocxConverter не может быть инициализирован: {e}")
+    print("Функции импорта/экспорта DOCX будут недоступны, но веб-сервер продолжит работу.")
 
 
 @app.route('/')
@@ -136,6 +151,16 @@ def view_document(doc_path):
     if not doc_file.exists() or not doc_file.suffix == '.md':
         return "Документ не найден", 404
     
+    # Проверяем, что это не карточка сотрудника
+    # Карточки сотрудников должны быть доступны только через /employee/
+    parts = Path(doc_path).parts
+    excluded_folders = {'сотрудники', 'employees'}
+    if any(part in excluded_folders for part in parts):
+        # Перенаправляем на страницу сотрудника
+        from urllib.parse import quote
+        emp_path = quote(doc_path, safe='/')
+        return redirect(f'/employee/{emp_path}')
+    
     document = parser.parse_document(doc_file)
     if not document:
         return "Ошибка при чтении документа", 500
@@ -190,6 +215,36 @@ def view_document(doc_path):
     # Получаем блок утверждения
     approval_block = document.get('approval_block')
     
+    # Находим карточки сотрудников для автора и исполнителя
+    author_employee = None
+    executor_employee = None
+    author_emp_path = None
+    executor_emp_path = None
+    
+    from urllib.parse import quote
+    
+    if document.get('author'):
+        author_employee = employee_parser.get_employee_by_name(
+            document['author'],
+            organization=document.get('organization'),
+            department=document.get('department')
+        )
+        if author_employee and 'file_path' in author_employee:
+            author_emp_path = Path(author_employee['file_path']).relative_to(BASE_DIR / "documents")
+            # Кодируем путь для URL
+            author_emp_path = quote(str(author_emp_path).replace('\\', '/'), safe='/')
+    
+    if document.get('executor'):
+        executor_employee = employee_parser.get_employee_by_name(
+            document['executor'],
+            organization=document.get('organization'),
+            department=document.get('department')
+        )
+        if executor_employee and 'file_path' in executor_employee:
+            executor_emp_path = Path(executor_employee['file_path']).relative_to(BASE_DIR / "documents")
+            # Кодируем путь для URL
+            executor_emp_path = quote(str(executor_emp_path).replace('\\', '/'), safe='/')
+    
     return render_template('document.html',
                          document=document,
                          content=html_content,
@@ -198,7 +253,11 @@ def view_document(doc_path):
                          history=history,
                          doc_path=doc_path,
                          attachments=attachments,
-                         approval_block=approval_block)
+                         approval_block=approval_block,
+                         author_employee=author_employee,
+                         executor_employee=executor_employee,
+                         author_emp_path=author_emp_path,
+                         executor_emp_path=executor_emp_path)
 
 
 def _process_document_links_in_markdown(markdown_content: str, doc_path: str, document: dict) -> str:
@@ -452,6 +511,9 @@ def api_convert():
     if not formats:
         return jsonify({'error': 'Не указаны корректные форматы (html, pdf)'}), 400
     
+    if converter is None:
+        return jsonify({'error': 'Конвертер документов недоступен. Установите необходимые системные библиотеки для генерации PDF.'}), 503
+    
     try:
         # Конвертируем документы
         results = converter.convert_filtered(
@@ -500,6 +562,9 @@ def api_convert_document(doc_path):
     formats = [f for f in formats if f in valid_formats]
     if not formats:
         return jsonify({'error': 'Не указаны корректные форматы (html, pdf)'}), 400
+    
+    if converter is None:
+        return jsonify({'error': 'Конвертер документов недоступен. Установите необходимые системные библиотеки для генерации PDF.'}), 503
     
     try:
         document = parser.parse_document(doc_file)
@@ -663,6 +728,9 @@ def delete_letterhead(document_type):
 @app.route('/api/docx/export/<path:doc_path>', methods=['GET'])
 def export_docx(doc_path):
     """API: выгрузка документа в формате DOCX"""
+    if docx_converter is None:
+        return jsonify({'error': 'Конвертер DOCX недоступен'}), 503
+    
     from urllib.parse import unquote
     
     # Декодируем путь
@@ -712,6 +780,9 @@ def export_docx(doc_path):
 @app.route('/api/docx/import', methods=['POST'])
 def import_docx():
     """API: загрузка документа в формате DOCX"""
+    if docx_converter is None:
+        return jsonify({'error': 'Конвертер DOCX недоступен'}), 503
+    
     if 'file' not in request.files:
         return jsonify({'error': 'Файл не найден'}), 400
     
@@ -822,6 +893,80 @@ def import_docx():
             'error': f'Ошибка при импорте: {str(e)}',
             'traceback': traceback.format_exc()
         }), 500
+
+
+@app.route('/employee/<path:emp_path>')
+def view_employee(emp_path):
+    """Просмотр карточки сотрудника"""
+    emp_file = BASE_DIR / "documents" / emp_path
+    
+    if not emp_file.exists() or not emp_file.suffix == '.md':
+        return "Карточка сотрудника не найдена", 404
+    
+    employee = employee_parser.parse_employee(emp_file)
+    if not employee:
+        return "Ошибка при чтении карточки сотрудника", 500
+    
+    # Конвертируем Markdown в HTML, если есть содержимое
+    html_content = ""
+    if 'content' in employee and employee['content']:
+        html_content = markdown2.markdown(
+            employee['content'],
+            extras=['fenced-code-blocks', 'tables', 'header-ids']
+        )
+    
+    return render_template('employee.html',
+                         employee=employee,
+                         content=html_content,
+                         emp_path=emp_path)
+
+
+@app.route('/api/employees')
+def api_employees():
+    """API: список сотрудников"""
+    organization = request.args.get('organization')
+    department = request.args.get('department')
+    available_only = request.args.get('available_only', 'false').lower() == 'true'
+    
+    if available_only:
+        employees = employee_parser.get_available_employees(organization=organization, department=department)
+    else:
+        employees = employee_parser.get_all_employees(organization=organization, department=department)
+    
+    return jsonify(employees)
+
+
+@app.route('/api/employee/<path:emp_path>')
+def api_employee(emp_path):
+    """API: получение карточки сотрудника"""
+    emp_file = BASE_DIR / "documents" / emp_path
+    
+    if not emp_file.exists():
+        return jsonify({'error': 'Карточка сотрудника не найдена'}), 404
+    
+    employee = employee_parser.parse_employee(emp_file)
+    if not employee:
+        return jsonify({'error': 'Ошибка при чтении карточки сотрудника'}), 500
+    
+    return jsonify(employee)
+
+
+@app.route('/api/employee/search')
+def api_employee_search():
+    """API: поиск сотрудника по ФИО"""
+    full_name = request.args.get('name')
+    organization = request.args.get('organization')
+    department = request.args.get('department')
+    
+    if not full_name:
+        return jsonify({'error': 'Не указано ФИО сотрудника'}), 400
+    
+    employee = employee_parser.get_employee_by_name(full_name, organization=organization, department=department)
+    
+    if not employee:
+        return jsonify({'error': 'Сотрудник не найден'}), 404
+    
+    return jsonify(employee)
 
 
 if __name__ == '__main__':

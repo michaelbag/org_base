@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ employee.full_name or 'Карточка сотрудника' }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/document.css">
+</head>
+<body>
+    <div class="container">
+        <header class="document-header">
+            <a href="/" class="back-link">← Вернуться к поиску</a>
+            <h1>{{ employee.full_name or 'Карточка сотрудника' }}</h1>
+        </header>
+
+        <div class="document-meta">
+            <table>
+                {% if employee.organization %}
+                <tr>
+                    <td><strong>Организация:</strong></td>
+                    <td>{{ employee.organization }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.department %}
+                <tr>
+                    <td><strong>Отдел:</strong></td>
+                    <td>{{ employee.department }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.position %}
+                <tr>
+                    <td><strong>Должность:</strong></td>
+                    <td>{{ employee.position }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.gender %}
+                <tr>
+                    <td><strong>Пол:</strong></td>
+                    <td>{{ employee.gender }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.internal_phone %}
+                <tr>
+                    <td><strong>Внутренний телефон:</strong></td>
+                    <td>{{ employee.internal_phone }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.email %}
+                <tr>
+                    <td><strong>Рабочий e-mail:</strong></td>
+                    <td><a href="mailto:{{ employee.email }}">{{ employee.email }}</a></td>
+                </tr>
+                {% endif %}
+                {% if employee.hire_date %}
+                <tr>
+                    <td><strong>Дата приема на работу:</strong></td>
+                    <td>{{ employee.hire_date }}</td>
+                </tr>
+                {% endif %}
+                {% if employee.dismissal_date %}
+                <tr>
+                    <td><strong>Дата увольнения:</strong></td>
+                    <td>{{ employee.dismissal_date }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td><strong>Доступность:</strong></td>
+                    <td>
+                        {% if employee.available %}
+                        <span class="status-badge status-действующий">Доступен</span>
+                        {% else %}
+                        <span class="status-badge status-уволен">Недоступен</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        {% if content %}
+        <div class="document-content">
+            {{ content|safe }}
+        </div>
+        {% endif %}
+
+        <footer class="document-footer">
+            <a href="/" class="back-link">← Вернуться к поиску</a>
+        </footer>
+    </div>
+</body>
+</html>
+

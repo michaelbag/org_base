@@ -534,6 +534,17 @@ class DocumentConverter:
                 <td>{{ metadata.number }}</td>
             </tr>
             {% endif %}
+            {% if metadata.draft_number %}
+            <tr>
+                <td>Номер в разработке (черновик):</td>
+                <td>{{ metadata.draft_number }}</td>
+            </tr>
+            {% elif metadata.status == 'в разработке' or metadata.status == 'черновик' %}
+            <tr>
+                <td>Номер в разработке (черновик):</td>
+                <td><em>Не присвоен</em></td>
+            </tr>
+            {% endif %}
             {% if metadata.date %}
             <tr>
                 <td>Дата:</td>
