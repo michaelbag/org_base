@@ -374,27 +374,35 @@ class DocxConverter:
             # Заголовки
             if '__H1__' in line:
                 text = re.sub(r'__H1__|__/H1__', '', line)
-                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text).strip()
-                if text:
-                    doc.add_heading(text, level=1)
+                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text)
+                # Удаляем маркеры форматирования и применяем форматирование
+                text = self._clean_formatting_markers(text)
+                if text.strip():
+                    heading = doc.add_heading(text.strip(), level=1)
                     last_was_empty = False
             elif '__H2__' in line:
                 text = re.sub(r'__H2__|__/H2__', '', line)
-                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text).strip()
-                if text:
-                    doc.add_heading(text, level=2)
+                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text)
+                # Удаляем маркеры форматирования и применяем форматирование
+                text = self._clean_formatting_markers(text)
+                if text.strip():
+                    heading = doc.add_heading(text.strip(), level=2)
                     last_was_empty = False
             elif '__H3__' in line:
                 text = re.sub(r'__H3__|__/H3__', '', line)
-                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text).strip()
-                if text:
-                    doc.add_heading(text, level=3)
+                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text)
+                # Удаляем маркеры форматирования и применяем форматирование
+                text = self._clean_formatting_markers(text)
+                if text.strip():
+                    heading = doc.add_heading(text.strip(), level=3)
                     last_was_empty = False
             elif '__H4__' in line:
                 text = re.sub(r'__H4__|__/H4__', '', line)
-                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text).strip()
-                if text:
-                    doc.add_heading(text, level=4)
+                text = re.sub(r'__(P|/P|LI|/LI|UL_START|UL_END|OL_START|OL_END)__', '', text)
+                # Удаляем маркеры форматирования и применяем форматирование
+                text = self._clean_formatting_markers(text)
+                if text.strip():
+                    heading = doc.add_heading(text.strip(), level=4)
                     last_was_empty = False
             # Списки
             elif '__UL_START__' in line:
@@ -443,6 +451,25 @@ class DocxConverter:
                 # Иначе просто пропускаем
             
             i += 1
+    
+    def _clean_formatting_markers(self, text: str) -> str:
+        """Удаляет маркеры форматирования из текста, применяя форматирование к заголовкам"""
+        import re
+        
+        # Обрабатываем правильно оформленные пары маркеров
+        # Заменяем __BOLD__...__/BOLD__ на просто текст (заголовки уже жирные по умолчанию)
+        text = re.sub(r'__BOLD__(.*?)__/BOLD__', r'\1', text, flags=re.DOTALL)
+        text = re.sub(r'__ITALIC__(.*?)__/ITALIC__', r'\1', text, flags=re.DOTALL)
+        
+        # Удаляем все оставшиеся поврежденные маркеры форматирования
+        text = re.sub(r'__+[A-Z_/]*?(BOLD|ITALIC|/BOLD|/ITALIC)[A-Z_/]*?__+', '', text)
+        text = re.sub(r'[A-Z_/]*?(BOLD|ITALIC|/BOLD|/ITALIC)[A-Z_/]*?__+', '', text)
+        text = re.sub(r'__+[A-Z_/]*?(BOLD|ITALIC|/BOLD|/ITALIC)[A-Z_/]*?', '', text)
+        
+        # Удаляем одиночные подчеркивания в начале/конце (остатки от маркеров)
+        text = re.sub(r'^_+\s*|\s*_+$', '', text)
+        
+        return text.strip()
     
     def _add_formatted_text_from_html(self, para, text: str):
         """Добавляет форматированный текст из HTML-подобных маркеров"""
